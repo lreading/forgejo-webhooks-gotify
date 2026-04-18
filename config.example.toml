@@ -1,0 +1,25 @@
+[logging]
+# Supports plain levels like "debug" and tracing filters like
+# "forgejo_actions_failed_webhook_gotify=debug,info".
+level = "info"
+
+[notification]
+# Valid fields: event, repository, action, prior_status, ref, commit, sender, url, delivery.
+body_exclude_fields = []
+
+[server]
+bind_addr = "0.0.0.0:3000"
+webhook_path = "/webhook"
+
+[gotify]
+base_url = "https://gotify.example.com"
+app_token = "replace-me"
+priority = 5
+title_prefix = "Forgejo"
+
+[forgejo]
+# Set this to the webhook secret configured in Forgejo to verify X-Forgejo-Signature.
+# secret = "replace-me"
+
+# Names are validated against Forgejo's modules/webhook/type.go.
+events = ["action_run_failure"]
