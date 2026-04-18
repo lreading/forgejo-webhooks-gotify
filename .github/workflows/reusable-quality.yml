@@ -1,0 +1,52 @@
+name: Reusable Quality
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Check Formatting
+        run: cargo fmt --check
+
+      - name: Test
+        run: cargo test
+
+      - name: Clippy
+        run: cargo clippy --all-targets
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Build Image
+        run: |
+          image="forgejo-webhooks-gotify:quality-${GITHUB_SHA}"
+          docker build --tag "${image}" .
+          echo "QUALITY_IMAGE=${image}" >> "${GITHUB_ENV}"
+
+      - name: Trivy Image Scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.QUALITY_IMAGE }}
+          trivyignores: .trivyignore
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          hide-progress: true
+          version: v0.70.0

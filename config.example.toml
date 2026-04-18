@@ -1,25 +1,44 @@
 [logging]
-# Supports plain levels like "debug" and tracing filters like
-# "forgejo_actions_failed_webhook_gotify=debug,info".
+# Log level or tracing filter.
+# Default: info
 level = "info"
 
 [notification]
-# Valid fields: event, repository, action, prior_status, ref, commit, sender, url, delivery.
+# Notification body fields to hide.
+# Default: []
 body_exclude_fields = []
 
 [server]
+# Address and port to listen on.
+# Default: 0.0.0.0:3000
 bind_addr = "0.0.0.0:3000"
+
+# HTTP path that receives webhooks.
+# Default: /webhook
 webhook_path = "/webhook"
 
 [gotify]
+# Gotify base URL.
+# Required
 base_url = "https://gotify.example.com"
+
+# Gotify application token.
+# Required
 app_token = "replace-me"
+
+# Gotify message priority.
+# Default: 5
 priority = 5
+
+# Gotify notification title prefix.
+# Default: Forgejo
 title_prefix = "Forgejo"
 
 [forgejo]
-# Set this to the webhook secret configured in Forgejo to verify X-Forgejo-Signature.
+# Forgejo webhook secret for signature validation.
+# Default: unset
 # secret = "replace-me"
 
-# Names are validated against Forgejo's modules/webhook/type.go.
+# Forgejo events to forward.
+# Default: ["action_run_failure"]
 events = ["action_run_failure"]

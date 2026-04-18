@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    name: Quality
+    uses: ./.github/workflows/reusable-quality.yml
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs:
+      - quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Prepare Names
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          version="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          {
+            echo "IMAGE=${image}"
+            echo "VERSION=${version}"
+            echo "BINARY=forgejo-actions-failed-webhook-gotify"
+          } >> "${GITHUB_ENV}"
+
+      - name: Build Release Binary
+        run: |
+          cargo build --release
+          package="${BINARY}-${VERSION}-x86_64-unknown-linux-gnu"
+          mkdir -p "dist/${package}"
+          cp "target/release/${BINARY}" "dist/${package}/"
+          cp README.md LICENSE "dist/${package}/"
+          tar -czf "dist/${package}.tar.gz" -C dist "${package}"
+          rm -rf "dist/${package}"
+          sha256sum "dist/${package}.tar.gz" > "dist/${package}.tar.gz.sha256"
+
+      - name: Attest Release Artifacts
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: "dist/*"
+
+      - name: Login to GHCR
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and Push Image
+        run: |
+          created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          docker build \
+            --build-arg "IMAGE_CREATED=${created}" \
+            --build-arg "IMAGE_REVISION=${GITHUB_SHA}" \
+            --build-arg "IMAGE_SOURCE=https://github.com/${GITHUB_REPOSITORY}" \
+            --build-arg "IMAGE_VERSION=${VERSION}" \
+            --tag "${IMAGE}:${VERSION}" \
+            --tag "${IMAGE}:latest" \
+            .
+          docker push "${IMAGE}:${VERSION}"
+          docker push "${IMAGE}:latest"
+          digest="$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{.Manifest.Digest}}')"
+          echo "IMAGE_DIGEST=${digest}" >> "${GITHUB_ENV}"
+
+      - name: Attest Image
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ env.IMAGE_DIGEST }}
+          push-to-registry: true
+
+      - name: Publish GitHub Release
+        run: |
+          # gh creates a draft, uploads assets, then publishes; this supports immutable releases.
+          gh release create "${VERSION}" dist/* \
+            --verify-tag \
+            --generate-notes \
+            --latest
+        env:
+          GH_TOKEN: ${{ github.token }}
