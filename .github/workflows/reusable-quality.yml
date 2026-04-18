@@ -21,12 +21,13 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
+          rustup component add rustfmt
 
       - name: Check Formatting
         run: cargo fmt --check
 
-  test:
-    name: Test
+  debug_build:
+    name: Debug Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -48,10 +49,43 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-${{ github.job }}
+          key: cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'src/**/*.rs') }}
           restore-keys: |
-            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-
-            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+            cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}-
+            cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+
+      - name: Build Debug Targets
+        run: cargo build --all-targets
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs:
+      - debug_build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Rust Cache Key
+        id: rust
+        run: echo "version=$(rustc -V | sed 's/[^A-Za-z0-9_.-]/-/g')" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore Rust Cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'src/**/*.rs') }}
+          restore-keys: |
+            cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}-
+            cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-
 
       - name: Test
         run: cargo test
@@ -59,6 +93,8 @@ jobs:
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
+    needs:
+      - debug_build
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -67,6 +103,7 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
+          rustup component add clippy
 
       - name: Rust Cache Key
         id: rust
@@ -79,10 +116,10 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-${{ github.job }}
+          key: cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'src/**/*.rs') }}
           restore-keys: |
-            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-
-            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+            cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}-
+            cargo-debug-${{ runner.os }}-${{ steps.rust.outputs.version }}-
 
       - name: Clippy
         run: cargo clippy --all-targets
@@ -110,10 +147,10 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-${{ github.job }}
+          key: cargo-release-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'src/**/*.rs') }}
           restore-keys: |
-            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-
-            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+            cargo-release-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}-
+            cargo-release-${{ runner.os }}-${{ steps.rust.outputs.version }}-
 
       - name: Build
         run: cargo build --release
@@ -147,6 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - format
+      - debug_build
       - test
       - clippy
       - release_build
@@ -158,6 +196,7 @@ jobs:
           failed=0
           for result in \
             "${{ needs.format.result }}" \
+            "${{ needs.debug_build.result }}" \
             "${{ needs.test.result }}" \
             "${{ needs.clippy.result }}" \
             "${{ needs.release_build.result }}" \
