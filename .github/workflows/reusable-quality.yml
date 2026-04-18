@@ -10,8 +10,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  quality:
-    name: Quality Gates
+  format:
+    name: Format
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,14 +25,105 @@ jobs:
       - name: Check Formatting
         run: cargo fmt --check
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Rust Cache Key
+        id: rust
+        run: echo "version=$(rustc -V | sed 's/[^A-Za-z0-9_.-]/-/g')" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore Rust Cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-${{ github.job }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+
       - name: Test
         run: cargo test
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Rust Cache Key
+        id: rust
+        run: echo "version=$(rustc -V | sed 's/[^A-Za-z0-9_.-]/-/g')" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore Rust Cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-${{ github.job }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
 
       - name: Clippy
         run: cargo clippy --all-targets
 
+  release_build:
+    name: Release Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Rust Cache Key
+        id: rust
+        run: echo "version=$(rustc -V | sed 's/[^A-Za-z0-9_.-]/-/g')" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore Rust Cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-${{ github.job }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}-
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+
       - name: Build
         run: cargo build --release
+
+  container_scan:
+    name: Container Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Build Image
         run: |
@@ -50,3 +141,34 @@ jobs:
           exit-code: "1"
           hide-progress: true
           version: v0.70.0
+
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    needs:
+      - format
+      - test
+      - clippy
+      - release_build
+      - container_scan
+    if: always()
+    steps:
+      - name: Check Quality Results
+        run: |
+          failed=0
+          for result in \
+            "${{ needs.format.result }}" \
+            "${{ needs.test.result }}" \
+            "${{ needs.clippy.result }}" \
+            "${{ needs.release_build.result }}" \
+            "${{ needs.container_scan.result }}"
+          do
+            if [ "${result}" != "success" ]; then
+              failed=1
+            fi
+          done
+
+          if [ "${failed}" -ne 0 ]; then
+            echo "One or more quality jobs failed."
+            exit 1
+          fi
