@@ -1,5 +1,5 @@
 [package]
-name = "forgejo-actions-failed-webhook-gotify"
+name = "forgejo-webhooks-gotify"
 version = "0.1.0"
 edition = "2024"
 
