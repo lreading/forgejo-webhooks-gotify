@@ -143,6 +143,9 @@ jobs:
       - name: Build
         run: cargo build --release
 
+      - name: Check Binary Name
+        run: test -x target/release/forgejo-webhooks-gotify
+
   container_scan:
     name: Container Scan
     runs-on: ubuntu-latest

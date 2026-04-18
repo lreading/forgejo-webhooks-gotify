@@ -41,12 +41,13 @@ jobs:
           {
             echo "IMAGE=${image}"
             echo "VERSION=${version}"
-            echo "BINARY=forgejo-actions-failed-webhook-gotify"
+            echo "BINARY=forgejo-webhooks-gotify"
           } >> "${GITHUB_ENV}"
 
       - name: Build Release Binary
         run: |
           cargo build --release
+          test -x "target/release/${BINARY}"
           package="${BINARY}-${VERSION}-x86_64-unknown-linux-gnu"
           mkdir -p "dist/${package}"
           cp "target/release/${BINARY}" "dist/${package}/"

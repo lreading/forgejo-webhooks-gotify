@@ -34,7 +34,7 @@ RUN apk add --no-cache ca-certificates \
     && addgroup -S forgejo-webhook \
     && adduser -S -D -H -G forgejo-webhook -s /bin/sh forgejo-webhook
 
-COPY --from=builder /app/target/release/forgejo-actions-failed-webhook-gotify /usr/local/bin/forgejo-webhook-gotify
+COPY --from=builder /app/target/release/forgejo-webhooks-gotify /usr/local/bin/forgejo-webhook-gotify
 
 USER forgejo-webhook:forgejo-webhook
 
