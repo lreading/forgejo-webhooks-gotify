@@ -87,10 +87,45 @@ Create a Forgejo webhook with:
 
 Event names are validated against Forgejo `modules/webhook/type.go`. The listener uses `X-Forgejo-Event-Type` when Forgejo sends it, and falls back to `X-Forgejo-Event` for compatibility.
 
-## Forgejo Global Setup
+## Forgejo Webhook Configuration
 
-TODO: Add global webhook setup instructions.
+1. As an admin, log into Forgejo and navigate to `/admin`
+2. Select Integrations > Webhooks in the left-nav
+3. You can use either a System or Default webhook: click the "Add Webhook" button and select "Forgejo"
+  a. System webhooks act on **all repositories**, there are security implications here
+  b. Default webhooks are only copied to new repositories, and can be reconfigured or removed at the repo level
+  c. You can also configure a repository specific webhook by going through the repo's settings
+4. Target URL: where ever you have this app deployed. It can be an IP or Domain, and can be HTTP or HTTPS
+5. Secret: *optional but recommended* - create a random secret, and ensure it the same in `FORGEJO_SECRET` for this app
+6. Trigger on: Select either "push events", or "Custom events..."
+  a. If using custom events, check which ever events you want.  For my use-case, I select only Action Run Events / Failure
+7. Branch Filter: optional
+8. Authentication Header: not implemented, will have no effect
+9. Ensure "Active" is checked, and click "Add Webhook"
 
-## Forgejo Event Selection
 
-TODO: Add Forgejo UI event-selection instructions.
+## Forgejo Server Config / `ALLOWED_HOST_LIST`
+
+By default, Forgejo will not communicate with external hosts unless they are defined in an allow-list.
+In v15, this is configured via `gitea.config.webhook.ALLOWED_HOST_LIST`.
+There may be other options for configuring this globally, please refer to the official docs for that.
+For this app in particular, this is the minimal config required to allow the webhooks to reach your server.
+
+[Forgejo's Configuration Cheat Sheet](https://forgejo.org/docs/latest/admin/config-cheat-sheet/#webhook-webhook) has extensive documentation on other helpful options including proxy configuration, skipping TLS verification, etc.
+
+***By IP Address***:
+
+```yaml
+config:
+  webhook:
+    ALLOWED_HOST_LIST: "external,10.10.13.174"
+```
+
+ ***By DNS***:
+
+```yaml
+config:
+  webhook:
+    ALLOWED_HOST_LIST: "external,forgejo-webhooks-gotify.myawesomedomain.com"
+```
+
