@@ -1,7 +1,13 @@
-FROM rust:1.94.1-alpine AS builder
+FROM alpine:3.22 AS builder
 
 WORKDIR /app
-RUN apk add --no-cache musl-dev
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN apk add --no-cache ca-certificates gcc musl-dev rustup
+COPY rust-toolchain.toml ./
+RUN rustup-init -y --no-modify-path --profile minimal --default-toolchain none \
+    && rustup show active-toolchain
+
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release
