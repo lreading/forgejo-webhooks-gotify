@@ -1,0 +1,64 @@
+name: Housekeeping
+
+on:
+  schedule:
+    - cron: "23 10 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  packages: read
+
+jobs:
+  latest-image-scan:
+    name: Scan Latest Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to GHCR
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Scan Latest Image
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/${{ github.repository }}:latest
+          trivyignores: .trivyignore
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table
+          output: trivy-latest.txt
+          hide-progress: true
+          version: v0.70.0
+
+      - name: Open Issue on Failure
+        if: steps.trivy.outcome == 'failure'
+        run: |
+          title="Trivy scan failed for latest image"
+          existing="$(gh issue list --state open --search "${title} in:title" --json number --jq 'length')"
+          if [ "${existing}" != "0" ]; then
+            echo "Existing open Trivy issue found; not creating another."
+            exit 0
+          fi
+
+          {
+            echo "The scheduled Trivy scan failed for \`ghcr.io/${GITHUB_REPOSITORY,,}:latest\`."
+            echo
+            echo "Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```text'
+            tail -200 trivy-latest.txt
+            echo '```'
+          } > issue-body.md
+
+          gh issue create \
+            --title "${title}" \
+            --body-file issue-body.md \
+            --assignee lreading
+        env:
+          GH_TOKEN: ${{ github.token }}
