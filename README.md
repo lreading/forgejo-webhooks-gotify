@@ -95,7 +95,7 @@ Event names are validated against Forgejo `modules/webhook/type.go`. The listene
   a. System webhooks act on **all repositories**, there are security implications here
   b. Default webhooks are only copied to new repositories, and can be reconfigured or removed at the repo level
   c. You can also configure a repository specific webhook by going through the repo's settings
-4. Target URL: where ever you have this app deployed. It can be an IP or Domain, and can be HTTP or HTTPS
+4. Target URL: where ever you have this app deployed. It can be an IP or Domain, and can be HTTP or HTTPS.  Use the `/webhook` path, eg: `https://fwg.myawesomesite.com/webhook`
 5. Secret: *optional but recommended* - create a random secret, and ensure it the same in `FORGEJO_SECRET` for this app
 6. Trigger on: Select either "push events", or "Custom events..."
   a. If using custom events, check which ever events you want.  For my use-case, I select only Action Run Events / Failure
