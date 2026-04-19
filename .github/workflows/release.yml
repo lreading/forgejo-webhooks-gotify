@@ -48,7 +48,7 @@ jobs:
         run: |
           cargo build --release
           test -x "target/release/${BINARY}"
-          package="${BINARY}-${VERSION}-x86_64-unknown-linux-gnu"
+          package="${BINARY}-${VERSION}-linux-amd64"
           mkdir -p "dist/${package}"
           cp "target/release/${BINARY}" "dist/${package}/"
           cp README.md LICENSE "dist/${package}/"
@@ -80,6 +80,18 @@ jobs:
           digest="$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{.Manifest.Digest}}')"
           echo "IMAGE_DIGEST=${digest}" >> "${GITHUB_ENV}"
 
+      - name: Prepare Release Notes
+        run: |
+          {
+           printf '## Image:\n\n'
+            printf '```sh\n'
+            printf 'docker pull %s:%s\n' "${IMAGE}" "${VERSION}"
+            printf '```\n\n'
+            printf -- '- Version tag: `%s:%s`\n' "${IMAGE}" "${VERSION}"
+            printf -- '- Latest tag: `%s:latest`\n' "${IMAGE}"
+            printf -- '- Digest: `%s@%s`\n\n' "${IMAGE}" "${IMAGE_DIGEST}"
+          } > release-notes.md
+
       - name: Attest Image
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
@@ -90,9 +102,11 @@ jobs:
       - name: Publish GitHub Release
         run: |
           # gh creates a draft, uploads assets, then publishes; this supports immutable releases.
+          notes="$(cat release-notes.md)"
           gh release create "${VERSION}" dist/* \
             --verify-tag \
             --generate-notes \
+            --notes "${notes}" \
             --latest
         env:
           GH_TOKEN: ${{ github.token }}
