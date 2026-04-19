@@ -26,11 +26,6 @@ updates:
       timezone: America/New_York
     cooldown:
       default-days: 10
-    allow:
-      - dependency-name: "*"
-        update-types:
-          - version-update:semver-minor
-          - version-update:semver-patch
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
