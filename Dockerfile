@@ -1,4 +1,4 @@
-FROM alpine:3.23.4 AS builder
+FROM alpine:3.24.0 AS builder
 
 WORKDIR /app
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -12,7 +12,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release
 
-FROM alpine:3.23.4
+FROM alpine:3.24.0
 
 ARG IMAGE_CREATED=1970-01-01T00:00:00Z
 ARG IMAGE_REVISION=local-test-build
